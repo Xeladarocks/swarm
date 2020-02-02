@@ -28,10 +28,12 @@ class Boid {
         if(this.fixed)fill(0, 255, 0);
         else fill(0, 0, 255);
         circle(this.position.x, this.position.y, this.radius); // draw boid
-        noFill(); stroke(0, 255, 0);
-        circle(this.position.x, this.position.y, this.detection_radius) // draw boid detection
-        stroke(255, 0, 0);
-        circle(this.position.x, this.position.y, this.avoidance_range) // draw boid detection
+        if(dev) {
+            noFill(); stroke(0, 255, 0);
+            circle(this.position.x, this.position.y, this.detection_radius) // draw boid detection
+            stroke(255, 0, 0);
+            circle(this.position.x, this.position.y, this.avoidance_range) // draw boid detection
+        }
     }
     drawNeighbors(flock) {
         noFill();
@@ -83,13 +85,13 @@ class Boid {
             this.fixed = true;
             master.target.fixed = true;
             this.target.index = master.target.index + 1;
-            let pattern_target = pattern[this.target.index][0];
+            let pattern_target = pattern[this.target.index];
             this.target.position = p5.Vector.add(master.target.position, createVector(sin(pattern_target.rad)*pattern_target.dist, cos(pattern_target.rad)*pattern_target.dist));
         }
-        this.followGuide(master, 1);
+        this.followGuide(master, 1.5);
     }
 
-    followGuide(guide, weight) {
+    followGuide(guide, weight=1) {
         let attraction = this.cohesion([guide.target]);
         attraction.mult(targetCohesionSlider.value()*weight);
         this.acceleration.add(attraction);
@@ -98,12 +100,15 @@ class Boid {
     flock(boids) {
         let separation = this.separation(boids);
         let cohesion = this.cohesion(boids);
+        let align = this.align(boids);
     
         separation.mult(separationSlider.value());
         cohesion.mult(cohesionSlider.value());
+        align.mult(alignSlider.value());
         
         this.acceleration.add(separation);
         this.acceleration.add(cohesion);
+        this.acceleration.add(align);
     }
 
     separation(boids) {
@@ -146,6 +151,26 @@ class Boid {
         }
         return steering;
     }
+
+    align(boids) {
+        let steering = createVector();
+        let total = 0;
+        for (let other of boids) {
+            let d = dist(this.position.x, this.position.y, other.position.x, other.position.y);
+            if (other != this && d < this.avoidance_range) {
+                steering.add(other.velocity);
+                total++;
+            }
+        }
+        if (total > 0) {
+            steering.div(total);
+            steering.setMag(this.maxSpeed);
+            steering.sub(this.velocity);
+            steering.limit(this.maxForce);
+        }
+        return steering;
+    }
+
 
     edges() {
         if (this.position.x+this.radius/2 > width) {
