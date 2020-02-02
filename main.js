@@ -1,10 +1,10 @@
 function setup() {
-    createCanvas(400, 400);
+    createCanvas(500, 700);
     frameRate(60);
     textSize(15);
 
     dev = false;
-    separationSlider = createSlider(0, 2, 0.5, 0.1);
+    separationSlider = createSlider(0, 2, 1, 0.1);
     separationSlider.position((windowWidth-width)/2+20, (windowHeight-height)/2+20);
     cohesionSlider = createSlider(0, 2, 0, 0.1);
     cohesionSlider.position((windowWidth-width)/2+20, (windowHeight-height)/2+50);
@@ -17,21 +17,35 @@ function setup() {
     }
 
     swarm = new Swarm();
-    swarm.create_pool(16);
+    swarm.create_pool(17); // 17
 
-    
-    let incr = 360/swarm.boids.length;
-    pattern = [];
-    for(let i=1; i < swarm.boids.length+3; i++) {
-        pattern.push([{rad: radians(incr*i), dist: 50}]);
-    }
+    pattern = [
+        [{rad: radians(30), dist: 75}], // 1
+        [{rad: radians(60), dist: 75}],
+        [{rad: radians(90), dist: 75}],
+        [{rad: radians(120), dist: 75}],
+        [{rad: radians(150), dist: 75}],
+        [{rad: radians(180), dist: 75}], // 5
+        [{rad: radians(210), dist: 75}],
+        [{rad: radians(240), dist: 75}],
+        [{rad: radians(240), dist: 75}],
+        [{rad: radians(210), dist: 75}],
+        [{rad: radians(180), dist: 75}], // 10
+        [{rad: radians(150), dist: 75}],
+        [{rad: radians(120), dist: 75}],
+        [{rad: radians(90), dist: 75}],
+        [{rad: radians(60), dist: 75}],
+        [{rad: radians(30), dist: 75}], // 15
+        [{rad: radians(0), dist: 0}],
+
+    ];
 
     let target = pattern[0][0];
     swarm.boids[0].target.index = 0;
-    swarm.boids[0].position = createVector(75, height/2+25);
+    swarm.boids[0].position = createVector(100, height-150);
     swarm.boids[0].fixed = true;
     swarm.boids[0].target.position = p5.Vector.add(swarm.boids[0].position, createVector(sin(target.rad)*target.dist, cos(target.rad)*target.dist));
-    pattern[0][0].done = true;
+    pattern[0][0].claimed = false;
 }
 
 function draw() {
@@ -54,20 +68,14 @@ function draw() {
             boid.drawNeighbors(flock);
             master = boid.getNearestFixed(flock);
         }
-        if(master) {
-            if(dist(boid.position.x, boid.position.y, master.target.position.x, master.target.position.y) < Boid.close_threshold) {
-                boid.fixed = true;
-                master.target.fixed = true;
-                boid.target.index = master.target.index + 1;
-                pattern_target = pattern[boid.target.index][0];
-                boid.target.position = p5.Vector.add(master.target.position, createVector(sin(pattern_target.rad)*pattern_target.dist, cos(pattern_target.rad)*pattern_target.dist));
-            }
-            let attraction = boid.cohesion([master.target]);
-            attraction.mult(targetCohesionSlider.value());
-            boid.acceleration.add(attraction);
-        } else
-            boid.acceleration.add(createVector(random(-1, 1), random(-1, 1)));
         if(!boid.fixed) {
+            if(master && master.target.child === boid) {
+                boid.listenMaster(master);
+            } else if(master) {
+                boid.followGuide(master, 0.5);
+            } else { // no target, look for new master
+                boid.acceleration.add(createVector(random(-1, 1), random(-1, 1)));
+            }
             boid.update();
         }
 

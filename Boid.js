@@ -1,8 +1,4 @@
 class Boid {
-    static radius = 20;
-    static detection_radius = 200;
-    static avoidance_range = 50;
-    static close_threshold = 5;
     constructor(x, y) {
         // local boid
         this.position = createVector(x, y);
@@ -12,23 +8,30 @@ class Boid {
         this.maxForce = 1;
         this.maxSpeed = 4;
 
+        this.radius = 20;
+        this.detection_radius = 200;
+        this.avoidance_range = 50;
+        this.close_threshold = 2;
+
         // organization
         this.fixed = false;
         this.target = {
             position: createVector(),
             fixed: false,
-            index: null
+            index: null,
+            child: null
         }
     }
+
     draw() {
         noStroke();
         if(this.fixed)fill(0, 255, 0);
         else fill(0, 0, 255);
-        circle(this.position.x, this.position.y, Boid.radius); // draw boid
+        circle(this.position.x, this.position.y, this.radius); // draw boid
         noFill(); stroke(0, 255, 0);
-        circle(this.position.x, this.position.y, Boid.detection_radius) // draw boid detection
+        circle(this.position.x, this.position.y, this.detection_radius) // draw boid detection
         stroke(255, 0, 0);
-        circle(this.position.x, this.position.y, Boid.avoidance_range) // draw boid detection
+        circle(this.position.x, this.position.y, this.avoidance_range) // draw boid detection
     }
     drawNeighbors(flock) {
         noFill();
@@ -52,7 +55,7 @@ class Boid {
             let boid = boids[i];
             if(boid == this)continue;
             let distance = dist(this.position.x, this.position.y, boid.position.x, boid.position.y);
-            if ((distance < Boid.detection_radius/2+Boid.radius/2)) { //overlay
+            if ((distance < this.detection_radius/2+this.radius/2)) { //overlay
                 neighbors.push(boid);
             }
         }
@@ -63,15 +66,33 @@ class Boid {
         let nearest_d = Infinity;
         let nearest_boid = null;
         for(let i=0; i < flock.length; i++) {
-            if(flock[i].fixed) {
+            if(flock[i].fixed) { // old child or new child
                 let d = dist(this.position.x, this.position.y, flock[i].position.x, flock[i].position.y);
                 if(d < nearest_d) {
                     nearest_d = d;
                     nearest_boid = flock[i];
                 }
+                if(!flock[i].target.child && !this.fixed) flock[i].target.child = this;
             }
         }
         return nearest_boid;
+    }
+
+    listenMaster(master) {
+        if(dist(this.position.x, this.position.y, master.target.position.x, master.target.position.y) < this.close_threshold) {
+            this.fixed = true;
+            master.target.fixed = true;
+            this.target.index = master.target.index + 1;
+            let pattern_target = pattern[this.target.index][0];
+            this.target.position = p5.Vector.add(master.target.position, createVector(sin(pattern_target.rad)*pattern_target.dist, cos(pattern_target.rad)*pattern_target.dist));
+        }
+        this.followGuide(master, 1);
+    }
+
+    followGuide(guide, weight) {
+        let attraction = this.cohesion([guide.target]);
+        attraction.mult(targetCohesionSlider.value()*weight);
+        this.acceleration.add(attraction);
     }
 
     flock(boids) {
@@ -90,7 +111,7 @@ class Boid {
         let total = 0;
         for (let other of boids) {
             let d = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-            if (other != this && d < Boid.avoidance_range) {
+            if (other != this && d < this.avoidance_range) {
                 let diff = p5.Vector.sub(this.position, other.position);
                 diff.div(d * d);
                 steering.add(diff);
@@ -111,7 +132,7 @@ class Boid {
         let total = 0;
         for (let other of boids) {
           let d = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-            if (other != this && d < Boid.detection_radius) {
+            if (other != this && d < this.detection_radius) {
                 steering.add(other.position);
                 total++;
             }
@@ -127,14 +148,14 @@ class Boid {
     }
 
     edges() {
-        if (this.position.x+Boid.radius/2 > width) {
+        if (this.position.x+this.radius/2 > width) {
             this.velocity.x = -1;
-        } else if (this.position.x-Boid.radius/2 < 0) {
+        } else if (this.position.x-this.radius/2 < 0) {
             this.velocity.x = 1;
         }
-        if (this.position.y+Boid.radius/2 > height) {
+        if (this.position.y+this.radius/2 > height) {
             this.velocity.y = -1;
-        } else if (this.position.y-Boid.radius/2 < 0) {
+        } else if (this.position.y-this.radius/2 < 0) {
             this.velocity.y = 1;
         }
     }
