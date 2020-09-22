@@ -27,12 +27,16 @@ class Boid {
         }
     }
     draw() {
-        fill(color(0, 0, 255));
-        stroke(color(0, 0, 255));
-        circle(this.position.x, this.position.y, Boid.radius);
-        fill(0, 0, 0, 0);
-        stroke(0, 255, 0);
-        circle(this.position.x, this.position.y, Boid.detection_radius)
+        noStroke();
+        if(this.fixed)fill(0, 255, 0);
+        else fill(0, 0, 255);
+        circle(this.position.x, this.position.y, this.radius); // draw boid
+        if(dev) {
+            noFill(); stroke(0, 255, 0);
+            circle(this.position.x, this.position.y, this.detection_radius) // draw boid detection
+            stroke(255, 0, 0);
+            circle(this.position.x, this.position.y, this.avoidance_range) // draw boid detection
+        }
     }
     drawNeighbors(flock) {
         noFill();
