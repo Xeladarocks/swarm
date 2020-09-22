@@ -34,6 +34,13 @@ class Boid {
         stroke(0, 255, 0);
         circle(this.position.x, this.position.y, Boid.detection_radius)
     }
+    drawNeighbors(flock) {
+        noFill();
+        stroke(100);
+        for(let i=0; i < flock.length; i++) {
+            line(this.position.x, this.position.y, flock[i].position.x, flock[i].position.y);
+        }
+    }
 
     update() {
         this.position.add(this.velocity.copy().mult(deltaTime/50));
