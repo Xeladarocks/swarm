@@ -1,4 +1,8 @@
 class Boid {
+    static radius = 20;
+    static detection_radius = 200;
+    static avoidance_range = 50;
+    static close_threshold = 2;
     constructor(x, y) {
         // local boid
         this.position = createVector(x, y);
@@ -8,10 +12,10 @@ class Boid {
         this.maxForce = 1;
         this.maxSpeed = 4;
 
-        this.radius = 20;
-        this.detection_radius = 200;
-        this.avoidance_range = 50;
-        this.close_threshold = 2;
+        this.radius = Boid.radius;
+        this.detection_radius = Boid.detection_radius;
+        this.avoidance_range = Boid.avoidance_range;
+        this.close_threshold = Boid.close_threshold;
 
         // organization
         this.fixed = false;
@@ -22,25 +26,13 @@ class Boid {
             child: null
         }
     }
-
     draw() {
-        noStroke();
-        if(this.fixed)fill(0, 255, 0);
-        else fill(0, 0, 255);
-        circle(this.position.x, this.position.y, this.radius); // draw boid
-        if(dev) {
-            noFill(); stroke(0, 255, 0);
-            circle(this.position.x, this.position.y, this.detection_radius) // draw boid detection
-            stroke(255, 0, 0);
-            circle(this.position.x, this.position.y, this.avoidance_range) // draw boid detection
-        }
-    }
-    drawNeighbors(flock) {
-        noFill();
-        stroke(100);
-        for(let i=0; i < flock.length; i++) {
-            line(this.position.x, this.position.y, flock[i].position.x, flock[i].position.y);
-        }
+        fill(color(0, 0, 255));
+        stroke(color(0, 0, 255));
+        circle(this.position.x, this.position.y, Boid.radius);
+        fill(0, 0, 0, 0);
+        stroke(0, 255, 0);
+        circle(this.position.x, this.position.y, Boid.detection_radius)
     }
 
     update() {
@@ -57,11 +49,104 @@ class Boid {
             let boid = boids[i];
             if(boid == this)continue;
             let distance = dist(this.position.x, this.position.y, boid.position.x, boid.position.y);
-            if ((distance < this.detection_radius/2+this.radius/2)) { //overlay
+            if ((distance < Boid.detection_radius/2+Boid.radius/2)) { //overlay
                 neighbors.push(boid);
             }
         }
         return neighbors;
+    }
+
+    flock(boids) {
+        let alignment = this.align(boids);
+        let cohesion = this.cohesion(boids);
+        let separation = this.separation(boids);
+    
+        alignment.mult(alignSlider.value());
+        cohesion.mult(cohesionSlider.value());
+        separation.mult(separationSlider.value());
+    
+        this.acceleration.add(alignment);
+        this.acceleration.add(cohesion);
+        this.acceleration.add(separation);
+    }
+
+    align(boids) {
+        let steering = createVector();
+        let total = 0;
+        for (let other of boids) {
+            let d = dist(this.position.x, this.position.y, other.position.x, other.position.y);
+            if (other != this && d < Boid.avoidance_range) {
+                steering.add(other.velocity);
+                total++;
+            }
+        }
+        if (total > 0) {
+            steering.div(total);
+            steering.setMag(this.maxSpeed);
+            steering.sub(this.velocity);
+            steering.limit(this.maxForce);
+        }
+        return steering;
+    }
+
+    separation(boids) {
+        let steering = createVector();
+        let total = 0;
+        for (let other of boids) {
+          let d = dist(
+            this.position.x,
+            this.position.y,
+            other.position.x,
+            other.position.y
+          );
+          if (other != this && d < Boid.avoidance_range) {
+            let diff = p5.Vector.sub(this.position, other.position);
+            diff.div(d * d);
+            steering.add(diff);
+            total++;
+          }
+        }
+        if (total > 0) {
+            steering.div(total);
+            steering.setMag(this.maxSpeed);
+            steering.sub(this.velocity);
+            steering.limit(this.maxForce);
+        }
+        return steering;
+    }
+
+    cohesion(boids) {
+        let perceptionRadius = 100;
+        let steering = createVector();
+        let total = 0;
+        for (let other of boids) {
+          let d = dist(this.position.x, this.position.y, other.position.x, other.position.y);
+            if (other != this && d < perceptionRadius) {
+                steering.add(other.position);
+                total++;
+            }
+        }
+        if (total > 0) {
+            steering.div(total);
+            steering.sub(this.position);
+            steering.setMag(this.maxSpeed);
+            steering.sub(this.velocity);
+            steering.limit(this.maxForce);
+        }
+        return steering;
+    }
+
+    edges() {
+        if (this.position.x+Boid.radius/2 > width) {
+            this.velocity.x = -1;
+        } else if (this.position.x-Boid.radius/2 < 0) {
+            this.velocity.x = 1;
+        }
+        if (this.position.y+Boid.radius/2 > height) {
+            this.velocity.y = -1;
+        } else if (this.position.y-Boid.radius/2 < 0) {
+            this.velocity.y = 1;
+        }
     }
 
     getNearestFixed(flock) {
@@ -95,93 +180,5 @@ class Boid {
         let attraction = this.cohesion([guide.target]);
         attraction.mult(targetCohesionSlider.value()*weight);
         this.acceleration.add(attraction);
-    }
-
-    flock(boids) {
-        let separation = this.separation(boids);
-        let cohesion = this.cohesion(boids);
-        let align = this.align(boids);
-    
-        separation.mult(separationSlider.value());
-        cohesion.mult(cohesionSlider.value());
-        align.mult(alignSlider.value());
-        
-        this.acceleration.add(separation);
-        this.acceleration.add(cohesion);
-        this.acceleration.add(align);
-    }
-
-    separation(boids) {
-        let steering = createVector();
-        let total = 0;
-        for (let other of boids) {
-            let d = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-            if (other != this && d < this.avoidance_range) {
-                let diff = p5.Vector.sub(this.position, other.position);
-                diff.div(d * d);
-                steering.add(diff);
-                total++;
-            }
-        }
-        if (total > 0) {
-            steering.div(total);
-            steering.setMag(this.maxSpeed);
-            steering.sub(this.velocity);
-            steering.limit(this.maxForce);
-        }
-        return steering;
-    }
-
-    cohesion(boids) {
-        let steering = createVector();
-        let total = 0;
-        for (let other of boids) {
-          let d = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-            if (other != this && d < this.detection_radius) {
-                steering.add(other.position);
-                total++;
-            }
-        }
-        if (total > 0) {
-            steering.div(total);
-            steering.sub(this.position);
-            steering.setMag(this.maxSpeed);
-            steering.sub(this.velocity);
-            steering.limit(this.maxForce);
-        }
-        return steering;
-    }
-
-    align(boids) {
-        let steering = createVector();
-        let total = 0;
-        for (let other of boids) {
-            let d = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-            if (other != this && d < this.avoidance_range) {
-                steering.add(other.velocity);
-                total++;
-            }
-        }
-        if (total > 0) {
-            steering.div(total);
-            steering.setMag(this.maxSpeed);
-            steering.sub(this.velocity);
-            steering.limit(this.maxForce);
-        }
-        return steering;
-    }
-
-
-    edges() {
-        if (this.position.x+this.radius/2 > width) {
-            this.velocity.x = -1;
-        } else if (this.position.x-this.radius/2 < 0) {
-            this.velocity.x = 1;
-        }
-        if (this.position.y+this.radius/2 > height) {
-            this.velocity.y = -1;
-        } else if (this.position.y-this.radius/2 < 0) {
-            this.velocity.y = 1;
-        }
     }
 }
