@@ -188,4 +188,5 @@ class Boid {
         attraction.mult(targetCohesionSlider.value()*weight);
         this.acceleration.add(attraction);
     }
+
 }
