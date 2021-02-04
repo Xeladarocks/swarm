@@ -1,4 +1,4 @@
-# Swarm AI
+# Swarm Algorithm
 
 A flock simulator with global robotic organization through local boid interactions.
 
